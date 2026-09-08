@@ -17,7 +17,10 @@ app.include_router(chat_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://pdf-intelligence-collaboration-syst-zeta.vercel.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
