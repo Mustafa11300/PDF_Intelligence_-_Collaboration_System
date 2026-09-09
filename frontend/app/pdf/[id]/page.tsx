@@ -39,7 +39,7 @@ export default function PDFViewerPage() {
   const [sideTab, setSideTab] = useState<"chat" | "comments">("comments");
   const [commentInput, setCommentInput] = useState("");
   const [posting, setPosting] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
@@ -57,7 +57,7 @@ export default function PDFViewerPage() {
       setPdf(pdfData);
       setComments(commentData);
     } catch (err: any) {
-      alert(err.message);
+      setNotice(err.message || "Unable to open this document.");
       router.push("/dashboard");
     } finally {
       setLoading(false);
@@ -91,7 +91,8 @@ export default function PDFViewerPage() {
       setComments((prev) => [...prev, newComment]);
       setCommentInput("");
     } catch (err: any) {
-      alert(err.message);
+      setNotice(err.message || "Unable to post comment.");
+      window.setTimeout(() => setNotice(null), 3500);
     } finally {
       setPosting(false);
     }
@@ -101,9 +102,9 @@ export default function PDFViewerPage() {
     try {
       const updated = await sharePDF(pdfId);
       const url = `${window.location.origin}/shared/${updated.share_token}`;
-      setShareUrl(url);
       await navigator.clipboard.writeText(url);
-      alert("Share link copied to clipboard!");
+      setNotice("Share link copied to clipboard");
+      window.setTimeout(() => setNotice(null), 3500);
     } catch (err: any) {
       alert(err.message);
     }
@@ -119,7 +120,7 @@ export default function PDFViewerPage() {
     try {
       const res = await sendChatMessage(pdfId, userMessage, chatMessages);
       setChatMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
-    } catch (err: any) {
+    } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong answering that." }]);
     } finally {
       setChatLoading(false);
@@ -127,12 +128,28 @@ export default function PDFViewerPage() {
   };
 
   if (loading) {
-    return <div style={{ padding: 40, color: "#64748b" }}>Loading...</div>;
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-slate-900">
+        <div className="flex w-full max-w-sm flex-col items-center text-center">
+          <div className="mb-8 flex size-16 items-center justify-center rounded-2xl bg-blue-50 text-2xl text-blue-600 shadow-sm">PDF</div>
+          <div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-blue-50"><div className="h-full w-3/5 rounded-full bg-blue-600" /></div>
+          <h1 className="text-2xl font-semibold tracking-tight">Opening your document</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">We&apos;re preparing your PDF workspace.</p>
+        </div>
+      </main>
+    );
   }
   if (!pdf) return null;
 
   return (
     <div className="h-screen bg-slate-50 text-slate-900" style={{ display: "flex", flexDirection: "column" }}>
+      {notice && (
+        <div role="status" className="fixed right-5 top-5 z-50 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-xl">
+          <span className="flex size-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">✓</span>
+          {notice}
+          <button onClick={() => setNotice(null)} className="ml-2 text-slate-400" aria-label="Dismiss notification">×</button>
+        </div>
+      )}
       {/* Top bar */}
       <header style={{ height: 52, background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", padding: "0 16px", gap: 12, flexShrink: 0 }}>
         <button

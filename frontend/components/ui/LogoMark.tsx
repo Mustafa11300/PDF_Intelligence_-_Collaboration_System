@@ -8,7 +8,6 @@ export function LogoMark({ showName = true }: { showName?: boolean }) {
       {showName && (
         <div className="leading-none">
           <p className="text-[25px] font-bold tracking-[-0.06em] text-slate-950">Clause<span className="text-blue-600">AI</span></p>
-          <p className="mt-2 text-[11px] font-medium tracking-[0.01em] text-slate-500">PDF Intelligence &amp; Collaboration</p>
         </div>
       )}
     </div>
