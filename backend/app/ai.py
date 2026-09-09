@@ -1,4 +1,5 @@
 import os
+import time
 from google import genai
 from dotenv import load_dotenv
 
@@ -6,7 +7,36 @@ load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-MODEL_NAME = "gemini-3.5-flash"
+# Tried in order — if the primary is overloaded, we fall back to the next one
+MODEL_CHAIN = ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+
+
+def _call_gemini_with_fallback(prompt: str, max_retries_per_model: int = 2) -> str | None:
+    """Tries each model in MODEL_CHAIN in order, retrying transient errors within each
+    model before moving to the next. Returns None only if every model in the chain fails."""
+    for model_name in MODEL_CHAIN:
+        for attempt in range(max_retries_per_model):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                return response.text.strip()
+            except Exception as e:
+                error_str = str(e)
+                is_transient = "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str or "RESOURCE_EXHAUSTED" in error_str
+                is_not_found = "404" in error_str or "NOT_FOUND" in error_str
+                print(f"Gemini call failed on model={model_name} (attempt {attempt + 1}/{max_retries_per_model}): {error_str}")
+
+                if is_not_found:
+                    break  # this model doesn't exist/isn't available — skip straight to next model
+                if is_transient and attempt < max_retries_per_model - 1:
+                    wait_time = (2 ** attempt) * 2  # 2s, 4s
+                    time.sleep(wait_time)
+                    continue
+                break  # exhausted retries for this model (or non-transient error) — try next model in chain
+
+    return None  # every model in the chain failed
 
 
 def generate_summary(pdf_text: str) -> str:
@@ -21,11 +51,12 @@ Document text:
 
 Summary:"""
 
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=prompt,
-    )
-    return response.text.strip()
+    result = _call_gemini_with_fallback(prompt)
+    if result:
+        return result
+
+    return "AI summary is temporarily unavailable due to high demand on the model provider. Please check back shortly, or open the document to read it directly."
+
 
 def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> list[str]:
     chunks = []
@@ -75,8 +106,8 @@ User's new question: {question}
 
 Answer concisely and accurately, grounded only in the document context above:"""
 
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=prompt,
-    )
-    return response.text.strip()
+    result = _call_gemini_with_fallback(prompt)
+    if result:
+        return result
+
+    return "Sorry, the AI is temporarily unavailable due to high demand — please try asking again in a moment."
