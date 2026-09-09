@@ -53,12 +53,10 @@ export default function LoginPage() {
             <div className="mb-8"><h1 className="text-3xl font-bold tracking-[-0.045em] text-slate-950">Welcome back</h1><p className="mt-3 text-base text-slate-500">Sign in to continue to your workspace.</p></div>
             <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
               <AuthField label="Work email" name="email" type="email" placeholder="you@company.com" value={form.email} onChange={handleChange} />
-              <div><AuthField label="Password" name="password" type="password" placeholder="Enter your password" value={form.password} onChange={handleChange} /><div className="mt-2 text-right"><button type="button" className="text-sm font-medium text-blue-600 underline underline-offset-2">Forgot password?</button></div></div>
+              <AuthField label="Password" name="password" type="password" placeholder="Enter your password" value={form.password} onChange={handleChange} />
               {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
               <IndigoButton type="submit" disabled={loading} className="mt-1 w-full">{loading ? "Signing in..." : <>Sign in <span aria-hidden="true" className="text-lg">→</span></>}</IndigoButton>
             </form>
-            <div className="my-7 flex items-center gap-4 text-xs font-medium text-slate-400"><span className="h-px flex-1 bg-slate-200" />OR<span className="h-px flex-1 bg-slate-200" /></div>
-            <button type="button" className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-slate-50"><span className="text-lg font-bold text-blue-600">G</span> Sign in with Google</button>
           </div>
         </div>
       </section>
