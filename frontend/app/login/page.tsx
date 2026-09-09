@@ -15,7 +15,7 @@ function ProductStory() {
     <section className="relative hidden min-h-screen overflow-hidden bg-[#f6f9ff] px-10 py-10 lg:flex lg:w-1/2 lg:flex-col xl:px-16">
       <div className="relative z-10"><LogoMark /></div>
       <div className="relative z-10 mt-auto max-w-xl pb-16 pt-20">
-        <p className="mb-7 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500">Legal documents, simplified</p>
+        <p className="mb-7 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500">Documents, simplified</p>
         <h2 className="max-w-lg text-6xl font-bold leading-[0.98] tracking-[-0.065em] text-slate-950 xl:text-7xl">Contracts,<br /><span className="text-blue-600">understood.</span></h2>
         <p className="mt-7 max-w-md text-xl font-semibold leading-8 text-slate-600">Turn your PDFs into actionable intelligence.</p>
         <p className="mt-4 max-w-md text-base leading-7 text-slate-500">Upload documents, get instant AI summaries, ask questions, and collaborate with your team — all in one place.</p>
