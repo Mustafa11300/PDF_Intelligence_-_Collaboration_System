@@ -7,280 +7,49 @@ import { useParams } from "next/navigation";
 import { getSharedPDF, listSharedComments, addSharedComment, sendSharedChatMessage } from "@/lib/api";
 import { LogoMark } from "@/components/ui/LogoMark";
 
-interface SharedPDF {
-  id: number;
-  filename: string;
-  summary: string | null;
-  summary_status: string;
-  file_url: string | null;
-}
+interface SharedPDF { id: number; filename: string; summary: string | null; summary_status: string; file_url: string | null; }
+interface Comment { id: number; author_name: string; content: string; created_at: string; }
+interface ChatMsg { role: "user" | "assistant"; content: string; }
 
-interface Comment {
-  id: number;
-  author_name: string;
-  content: string;
-  created_at: string;
-}
-
-interface ChatMsg {
-  role: "user" | "assistant";
-  content: string;
+function LoadingExperience() {
+  return (
+    <main className="min-h-screen bg-white px-6 py-12 text-[#132344] sm:px-10 lg:px-12">
+      <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-5xl flex-col items-center justify-center text-center">
+        <div className="relative flex h-80 w-full max-w-2xl items-center justify-center sm:h-96">
+          <div className="absolute size-56 rounded-full border border-blue-100 sm:size-72" />
+          <div className="absolute size-72 rounded-full border border-blue-50 sm:size-96" />
+          <div className="absolute left-[18%] top-[28%] size-2 rounded-full bg-blue-300" />
+          <div className="absolute right-[17%] top-[43%] size-2 rounded-full bg-blue-200" />
+          <div className="relative flex h-60 w-44 flex-col rounded-2xl border border-blue-50 bg-white p-5 text-left shadow-[0_22px_60px_rgba(50,104,220,0.16)] sm:h-72 sm:w-52">
+            <div className="flex items-center gap-2 text-rose-500"><span className="flex size-7 items-center justify-center rounded-md bg-rose-400 text-sm text-white">⌁</span><span className="font-semibold">PDF</span></div>
+            <div className="mt-7 flex flex-col gap-3">{["w-full", "w-4/5", "w-1/2", "w-3/4", "w-2/3"].map((width) => <span key={width} className={`h-2 rounded-full bg-blue-50 ${width}`} />)}</div>
+            <div className="mt-5 h-12 w-20 rounded-lg bg-blue-50" />
+            <div className="mt-5 flex flex-col gap-3">{["w-full", "w-5/6", "w-4/6"].map((width) => <span key={width} className={`h-2 rounded-full bg-blue-50 ${width}`} />)}</div>
+          </div>
+          <div className="absolute left-[8%] top-[30%] rounded-full border border-blue-50 bg-white px-5 py-3 text-sm font-medium text-slate-500 shadow-[0_12px_30px_rgba(51,102,204,0.1)]">✦&nbsp;&nbsp; Extracting content...</div>
+          <div className="absolute right-[6%] top-[53%] rounded-full border border-blue-50 bg-white px-5 py-3 text-sm font-medium text-slate-500 shadow-[0_12px_30px_rgba(51,102,204,0.1)]">⌕&nbsp;&nbsp; Loading document...</div>
+          <div className="absolute bottom-[12%] left-[13%] rounded-full border border-blue-50 bg-white px-5 py-3 text-sm font-medium text-slate-500 shadow-[0_12px_30px_rgba(51,102,204,0.1)]">▣&nbsp;&nbsp; Preparing viewer...</div>
+        </div>
+        <h1 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">Opening your document</h1>
+        <p className="mt-3 max-w-md text-lg leading-7 text-slate-500">We&apos;re loading the PDF and preparing your workspace.<br />This will just take a moment.</p>
+        <div className="mt-8 flex w-full max-w-xl items-center gap-4"><div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-50"><div className="h-full w-3/5 rounded-full bg-blue-600" /></div><span className="text-sm font-semibold text-slate-500">60%</span></div>
+        <div className="mt-14 grid w-full max-w-3xl gap-8 text-left sm:grid-cols-3 sm:gap-0">
+          {[{ icon: "▤", title: "Loading PDF", detail: "Rendering pages", tone: "bg-blue-50 text-blue-600" }, { icon: "✦", title: "Preparing AI tools", detail: "Summary & chat", tone: "bg-violet-50 text-violet-600" }, { icon: "♧", title: "Setting up workspace", detail: "Comments & collaboration", tone: "bg-emerald-50 text-emerald-600" }].map((step, index) => <div key={step.title} className={`flex items-center gap-4 px-5 ${index > 0 ? "sm:border-l sm:border-slate-200" : ""}`}><span className={`flex size-14 shrink-0 items-center justify-center rounded-xl text-2xl ${step.tone}`}>{step.icon}</span><div><p className="font-semibold">{step.title}</p><p className="mt-1 text-sm text-slate-500">{step.detail}</p></div></div>)}
+        </div>
+        <div className="mt-16"><LogoMark /><p className="mt-1 text-sm text-slate-400">Contracts, understood.</p></div>
+      </div>
+    </main>
+  );
 }
 
 export default function SharedPDFPage() {
-  const params = useParams();
-  const token = params.token as string;
-
-  const [pdf, setPdf] = useState<SharedPDF | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [sideTab, setSideTab] = useState<"chat" | "comments">("comments");
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  const [authorName, setAuthorName] = useState("");
-  const [commentInput, setCommentInput] = useState("");
-  const [posting, setPosting] = useState(false);
-
-  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hello! I've analyzed this document. Ask me anything about its contents." },
-  ]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [pdfData, commentData] = await Promise.all([
-          getSharedPDF(token),
-          listSharedComments(token),
-        ]);
-        setPdf(pdfData);
-        setComments(commentData);
-      } catch (err) {
-        setNotFound(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-
-    const interval = setInterval(async () => {
-      try {
-        const commentData = await listSharedComments(token);
-        setComments(commentData);
-      } catch {
-        // silent fail on background poll
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [token]);
-
-  const handlePostComment = async () => {
-    if (!commentInput.trim() || !authorName.trim()) return;
-    setPosting(true);
-    try {
-      const newComment = await addSharedComment(token, commentInput.trim(), authorName.trim());
-      setComments((prev) => [...prev, newComment]);
-      setCommentInput("");
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setPosting(false);
-    }
-  };
-
-  const handleSendChat = async () => {
-    if (!chatInput.trim() || chatLoading) return;
-    const userMessage = chatInput.trim();
-    const historySnapshot = chatMessages;
-    setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setChatInput("");
-    setChatLoading(true);
-    try {
-      const res = await sendSharedChatMessage(token, userMessage, historySnapshot);
-      setChatMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
-    } catch (err: any) {
-      setChatMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong answering that." }]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  if (loading) {
-    return <div style={{ padding: 40, color: "#64748b" }}>Loading...</div>;
-  }
-  if (notFound || !pdf) {
-    return (
-      <div className="flex items-center justify-center" style={{ height: "100vh", color: "#64748b" }}>
-        This shared link is invalid or has expired.
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-screen bg-slate-50 text-slate-900" style={{ display: "flex", flexDirection: "column" }}>
-      {/* Top bar */}
-      <header style={{ height: 52, background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", padding: "0 16px", gap: 12, flexShrink: 0 }}>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <LogoMark />
-          <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {pdf.filename}
-          </span>
-        </div>
-        <span
-          className="px-2.5 py-1 rounded-full text-xs font-semibold"
-          style={{ background: "#eef2ff", color: "#4f46e5" }}
-        >
-          Shared view
-        </span>
-      </header>
-
-      {/* Split body */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Left: PDF viewer */}
-        <div style={{ flex: "0 0 65%", borderRight: "1px solid #e2e8f0", overflow: "hidden" }}>
-          {pdf.file_url ? (
-            <iframe src={pdf.file_url} style={{ width: "100%", height: "100%", border: "none" }} title={pdf.filename} />
-          ) : (
-            <div className="flex items-center justify-center h-full" style={{ color: "#94a3b8" }}>
-              PDF preview unavailable
-            </div>
-          )}
-        </div>
-
-        {/* Right: Chat / Comments */}
-        <div style={{ flex: "0 0 35%", display: "flex", flexDirection: "column", background: "#fff" }}>
-          <div style={{ padding: 16, borderBottom: "1px solid #e2e8f0" }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 6 }}>SUMMARY</p>
-            <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
-              {pdf.summary_status === "pending" ? "Generating summary..." : pdf.summary || "No summary available."}
-            </p>
-          </div>
-
-          <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0" }}>
-            <button
-              onClick={() => setSideTab("chat")}
-              style={{
-                flex: 1, padding: "12px 0", fontSize: 13, fontWeight: 600,
-                color: sideTab === "chat" ? "#4f46e5" : "#94a3b8",
-                borderBottom: sideTab === "chat" ? "2px solid #6366f1" : "2px solid transparent",
-              }}
-            >
-              AI Chat
-            </button>
-            <button
-              onClick={() => setSideTab("comments")}
-              style={{
-                flex: 1, padding: "12px 0", fontSize: 13, fontWeight: 600,
-                color: sideTab === "comments" ? "#4f46e5" : "#94a3b8",
-                borderBottom: sideTab === "comments" ? "2px solid #6366f1" : "2px solid transparent",
-              }}
-            >
-              Comments ({comments.length})
-            </button>
-          </div>
-
-          {sideTab === "comments" ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                {comments.length === 0 ? (
-                  <p style={{ fontSize: 13, color: "#94a3b8" }}>No comments yet.</p>
-                ) : (
-                  comments.map((c) => (
-                    <div key={c.id} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid #f1f5f9" }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-                        >
-                          {c.author_name.charAt(0).toUpperCase()}
-                        </div>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{c.author_name}</span>
-                        <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                          {new Date(c.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{c.content}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div style={{ padding: 12, borderTop: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Your name"
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }}
-                />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="text"
-                    placeholder="Add a comment..."
-                    value={commentInput}
-                    onChange={(e) => setCommentInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handlePostComment()}
-                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }}
-                  />
-                  <button
-                    onClick={handlePostComment}
-                    disabled={posting || !authorName.trim()}
-                    style={{ padding: "8px 14px", borderRadius: 8, background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 600 }}
-                  >
-                    Post
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                {chatMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "85%",
-                      background: msg.role === "user" ? "#6366f1" : "#f1f5f9",
-                      color: msg.role === "user" ? "#fff" : "#0f172a",
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {msg.content}
-                  </div>
-                ))}
-                {chatLoading && (
-                  <div style={{ alignSelf: "flex-start", color: "#94a3b8", fontSize: 12, padding: "0 4px" }}>
-                    Thinking...
-                  </div>
-                )}
-              </div>
-              <div style={{ padding: 12, borderTop: "1px solid #e2e8f0", display: "flex", gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Ask a question..."
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
-                  disabled={chatLoading}
-                  style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }}
-                />
-                <button
-                  onClick={handleSendChat}
-                  disabled={chatLoading}
-                  style={{ padding: "8px 14px", borderRadius: 8, background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 600 }}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  const params = useParams(); const token = params.token as string;
+  const [pdf, setPdf] = useState<SharedPDF | null>(null); const [comments, setComments] = useState<Comment[]>([]); const [sideTab, setSideTab] = useState<"chat" | "comments">("comments"); const [loading, setLoading] = useState(true); const [notFound, setNotFound] = useState(false);
+  const [authorName, setAuthorName] = useState(""); const [commentInput, setCommentInput] = useState(""); const [posting, setPosting] = useState(false); const [chatMessages, setChatMessages] = useState<ChatMsg[]>([{ role: "assistant", content: "Hello! I&apos;ve analyzed this document. Ask me anything about its contents." }]); const [chatInput, setChatInput] = useState(""); const [chatLoading, setChatLoading] = useState(false);
+  useEffect(() => { const load = async () => { try { const [pdfData, commentData] = await Promise.all([getSharedPDF(token), listSharedComments(token)]); setPdf(pdfData); setComments(commentData); } catch { setNotFound(true); } finally { setLoading(false); } }; void load(); const interval = setInterval(async () => { try { setComments(await listSharedComments(token)); } catch {} }, 5000); return () => clearInterval(interval); }, [token]);
+  const handlePostComment = async () => { if (!commentInput.trim() || !authorName.trim()) return; setPosting(true); try { const newComment = await addSharedComment(token, commentInput.trim(), authorName.trim()); setComments((prev) => [...prev, newComment]); setCommentInput(""); } catch (err: any) { alert(err.message); } finally { setPosting(false); } };
+  const handleSendChat = async () => { if (!chatInput.trim() || chatLoading) return; const userMessage = chatInput.trim(); const historySnapshot = chatMessages; setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]); setChatInput(""); setChatLoading(true); try { const res = await sendSharedChatMessage(token, userMessage, historySnapshot); setChatMessages((prev) => [...prev, { role: "assistant", content: res.reply }]); } catch { setChatMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong answering that." }]); } finally { setChatLoading(false); } };
+  if (loading) return <LoadingExperience />;
+  if (notFound || !pdf) return <main className="flex min-h-screen items-center justify-center bg-white px-6 text-slate-500">This shared link is invalid or has expired.</main>;
+  return <div className="flex h-screen flex-col bg-slate-50 text-slate-900"><header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 sm:px-8"><div className="flex min-w-0 items-center gap-3"><LogoMark /><span className="truncate border-l border-slate-200 pl-3 text-sm font-semibold text-slate-700">{pdf.filename}</span></div><span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600">Shared view</span></header><div className="flex min-h-0 flex-1 flex-col lg:flex-row"><div className="min-h-[48vh] flex-1 border-b border-slate-200 bg-slate-100 lg:border-b-0 lg:border-r">{pdf.file_url ? <iframe src={pdf.file_url} className="size-full border-0" title={pdf.filename} /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">PDF preview unavailable</div>}</div><aside className="flex min-h-0 w-full flex-col bg-white lg:w-[390px] xl:w-[430px]"><div className="border-b border-slate-100 p-5"><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600">Document summary</p><p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-600">{pdf.summary_status === "pending" ? "Generating summary..." : pdf.summary || "No summary available."}</p></div><div className="flex border-b border-slate-100"><button onClick={() => setSideTab("chat")} className={`flex-1 border-b-2 px-4 py-3 text-sm font-semibold ${sideTab === "chat" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400"}`}>AI Chat</button><button onClick={() => setSideTab("comments")} className={`flex-1 border-b-2 px-4 py-3 text-sm font-semibold ${sideTab === "comments" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400"}`}>Comments ({comments.length})</button></div>{sideTab === "comments" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex-1 overflow-y-auto p-5">{comments.length === 0 ? <p className="text-sm text-slate-400">No comments yet.</p> : comments.map((c) => <div key={c.id} className="mb-5 border-b border-slate-100 pb-5"><div className="flex items-center gap-2"><div className="flex size-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{c.author_name.charAt(0).toUpperCase()}</div><span className="text-sm font-semibold">{c.author_name}</span><span className="text-[11px] text-slate-400">{new Date(c.created_at).toLocaleString()}</span></div><p className="mt-2 text-sm leading-6 text-slate-600">{c.content}</p></div>)}</div><div className="border-t border-slate-100 p-4"><input className="mb-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Your name" value={authorName} onChange={(e) => setAuthorName(e.target.value)} /><div className="flex gap-2"><input className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Add a comment..." value={commentInput} onChange={(e) => setCommentInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) void handlePostComment(); }} /><button onClick={() => void handlePostComment()} disabled={posting || !authorName.trim()} className="rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50">Post</button></div></div></div> : <div className="flex min-h-0 flex-1 flex-col"><div className="flex-1 space-y-3 overflow-y-auto p-5">{chatMessages.map((msg, i) => <div key={i} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 ${msg.role === "user" ? "ml-auto bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}>{msg.content}</div>)}{chatLoading && <p className="text-xs text-slate-400">Thinking...</p>}</div><div className="flex gap-2 border-t border-slate-100 p-4"><input className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400" placeholder="Ask a question..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) void handleSendChat(); }} disabled={chatLoading} /><button onClick={() => void handleSendChat()} disabled={chatLoading} className="rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50">Send</button></div></div>}</aside></div></div>;
 }
