@@ -15,7 +15,7 @@ A web application for uploading PDFs, generating AI summaries, chatting with doc
 - PDF upload with format validation, stored in Supabase Storage
 - Dashboard with search-by-filename and AI-generated summary previews
 - Shareable links — invited users can view, comment, and chat with a document without an account
-- Threaded, live-updating comments (owner and invited users)
+- Live-updating comments (owner and invited users)
 - AI-generated 3–5 sentence summary on every upload
 - AI chat panel grounded in document content, with conversational memory
 - Access control on every document, comment, and chat endpoint
@@ -32,7 +32,7 @@ A web application for uploading PDFs, generating AI summaries, chatting with doc
 | ORM | SQLModel (SQLAlchemy) |
 | Auth | JWT (python-jose) + bcrypt |
 | PDF text extraction | pdfplumber |
-| LLM | Google Gemini (`gemini-3.6-flash` via the `google-genai` SDK) |
+| LLM | Google Gemini (`gemini-3.5-flash-lite` via the `google-genai` SDK) |
 | Chunk retrieval | `rank_bm25` (BM25 keyword ranking, no vector DB) |
 | Frontend | Next.js (App Router) + TypeScript |
 | Frontend hosting | Vercel |
@@ -139,7 +139,7 @@ Rather than sending the entire PDF text on every chat message (which breaks on l
 This avoids the complexity of a vector database or embeddings pipeline while still scaling to documents far longer than a single context window. Chat maintains conversational memory by sending recent turns with each request (the frontend keeps the full transcript client-side; only the last 5 turns are sent to the model).
 
 ### Model
-`gemini-3.6-flash`, chosen for its speed and generous free tier, used for both summary and chat generation via the official `google-genai` SDK.
+`gemini-3.5-flash-lite`, chosen for its speed and generous free tier, used for both summary and chat generation via the official `google-genai` SDK.
 
 ---
 

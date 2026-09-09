@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_db_and_tables
-from app.routers import auth_routes
 import app.models  # noqa: F401  (ensures models are registered before create_all)
 from app.routers import auth_routes, pdf_routes, comment_routes, chat_routes
 
@@ -34,6 +33,3 @@ def on_startup():
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-app.include_router(auth_routes.router)
