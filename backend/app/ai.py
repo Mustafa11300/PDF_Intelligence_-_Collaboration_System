@@ -8,7 +8,7 @@ load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Tried in order — if the primary is overloaded, we fall back to the next one
-MODEL_CHAIN = ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+MODEL_CHAIN = ["gemini-3.5-flash-lite"]
 
 
 def _call_gemini_with_fallback(prompt: str, max_retries_per_model: int = 2) -> str | None:
