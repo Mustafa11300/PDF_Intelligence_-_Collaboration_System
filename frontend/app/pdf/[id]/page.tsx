@@ -7,321 +7,46 @@ import { useParams, useRouter } from "next/navigation";
 import { getPDF, listComments, addComment, sharePDF, sendChatMessage } from "@/lib/api";
 import { LogoMark } from "@/components/ui/LogoMark";
 
-interface PDFDetail {
-  id: number;
-  filename: string;
-  upload_date: string;
-  summary: string | null;
-  summary_status: string;
-  share_token: string | null;
-  file_url: string | null;
-}
+interface PDFDetail { id: number; filename: string; upload_date: string; summary: string | null; summary_status: string; share_token: string | null; file_url: string | null; }
+interface Comment { id: number; author_name: string; content: string; created_at: string; }
+interface ChatMsg { role: "user" | "assistant"; content: string; }
 
-interface Comment {
-  id: number;
-  author_name: string;
-  content: string;
-  created_at: string;
-}
+const iconProps = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
-interface ChatMsg {
-  role: "user" | "assistant";
-  content: string;
-}
+function ChevronLeft() { return <svg {...iconProps}><path d="m15 18-6-6 6-6" /></svg>; }
+function ShareIcon() { return <svg {...iconProps}><circle cx="18" cy="5" r="2" /><circle cx="6" cy="12" r="2" /><circle cx="18" cy="19" r="2" /><path d="m8 11 8-5M8 13l8 5" /></svg>; }
+function SendIcon() { return <svg {...iconProps}><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>; }
 
 export default function PDFViewerPage() {
-  const params = useParams();
-  const router = useRouter();
-  const pdfId = Number(params.id);
+  const params = useParams(); const router = useRouter(); const pdfId = Number(params.id);
+  const [pdf, setPdf] = useState<PDFDetail | null>(null); const [comments, setComments] = useState<Comment[]>([]); const [sideTab, setSideTab] = useState<"chat" | "comments">("chat");
+  const [commentInput, setCommentInput] = useState(""); const [posting, setPosting] = useState(false); const [notice, setNotice] = useState<string | null>(null); const [loading, setLoading] = useState(true);
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([{ role: "assistant", content: "Based on the document, I can help you find key details, explain sections, or compare information. What would you like to know?" }]);
+  const [chatInput, setChatInput] = useState(""); const [chatLoading, setChatLoading] = useState(false);
 
-  const [pdf, setPdf] = useState<PDFDetail | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [sideTab, setSideTab] = useState<"chat" | "comments">("comments");
-  const [commentInput, setCommentInput] = useState("");
-  const [posting, setPosting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const loadData = async () => { try { const [pdfData, commentData] = await Promise.all([getPDF(pdfId), listComments(pdfId)]); setPdf(pdfData); setComments(commentData); } catch (err: any) { setNotice(err.message || "Unable to open this document."); router.push("/dashboard"); } finally { setLoading(false); } };
+  useEffect(() => { if (!localStorage.getItem("token")) { router.push("/login"); return; } void loadData(); const interval = setInterval(async () => { try { setComments(await listComments(pdfId)); } catch {} }, 5000); return () => clearInterval(interval); }, [pdfId]);
+  const handlePostComment = async () => { if (!commentInput.trim()) return; setPosting(true); try { const newComment = await addComment(pdfId, commentInput.trim()); setComments((prev) => [...prev, newComment]); setCommentInput(""); } catch (err: any) { setNotice(err.message || "Unable to post comment."); window.setTimeout(() => setNotice(null), 3500); } finally { setPosting(false); } };
+  const handleShare = async () => { try { const updated = await sharePDF(pdfId); await navigator.clipboard.writeText(`${window.location.origin}/shared/${updated.share_token}`); setNotice("Share link copied to clipboard"); window.setTimeout(() => setNotice(null), 3500); } catch (err: any) { setNotice(err.message || "Unable to share document."); } };
+  const handleSendChat = async () => { if (!chatInput.trim() || chatLoading) return; const userMessage = chatInput.trim(); const history = chatMessages; setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]); setChatInput(""); setChatLoading(true); try { const res = await sendChatMessage(pdfId, userMessage, history); setChatMessages((prev) => [...prev, { role: "assistant", content: res.reply }]); } catch { setChatMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong answering that." }]); } finally { setChatLoading(false); } };
 
-  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hello! I've analyzed this document. Ask me anything about its contents." },
-  ]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-
-  const loadData = async () => {
-    try {
-      const [pdfData, commentData] = await Promise.all([
-        getPDF(pdfId),
-        listComments(pdfId),
-      ]);
-      setPdf(pdfData);
-      setComments(commentData);
-    } catch (err: any) {
-      setNotice(err.message || "Unable to open this document.");
-      router.push("/dashboard");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      router.push("/login");
-      return;
-    }
-    loadData();
-
-    const interval = setInterval(async () => {
-      try {
-        const commentData = await listComments(pdfId);
-        setComments(commentData);
-      } catch {
-        // silent fail on background poll
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [pdfId]);
-
-  const handlePostComment = async () => {
-    if (!commentInput.trim()) return;
-    setPosting(true);
-    try {
-      const newComment = await addComment(pdfId, commentInput.trim());
-      setComments((prev) => [...prev, newComment]);
-      setCommentInput("");
-    } catch (err: any) {
-      setNotice(err.message || "Unable to post comment.");
-      window.setTimeout(() => setNotice(null), 3500);
-    } finally {
-      setPosting(false);
-    }
-  };
-
-  const handleShare = async () => {
-    try {
-      const updated = await sharePDF(pdfId);
-      const url = `${window.location.origin}/shared/${updated.share_token}`;
-      await navigator.clipboard.writeText(url);
-      setNotice("Share link copied to clipboard");
-      window.setTimeout(() => setNotice(null), 3500);
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  const handleSendChat = async () => {
-    if (!chatInput.trim() || chatLoading) return;
-    const userMessage = chatInput.trim();
-    const newHistory = [...chatMessages, { role: "user" as const, content: userMessage }];
-    setChatMessages(newHistory);
-    setChatInput("");
-    setChatLoading(true);
-    try {
-      const res = await sendChatMessage(pdfId, userMessage, chatMessages);
-      setChatMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
-    } catch {
-      setChatMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong answering that." }]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-slate-900">
-        <div className="flex w-full max-w-sm flex-col items-center text-center">
-          <div className="mb-8 flex size-16 items-center justify-center rounded-2xl bg-blue-50 text-2xl text-blue-600 shadow-sm">PDF</div>
-          <div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-blue-50"><div className="h-full w-3/5 rounded-full bg-blue-600" /></div>
-          <h1 className="text-2xl font-semibold tracking-tight">Opening your document</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">We&apos;re preparing your PDF workspace.</p>
-        </div>
-      </main>
-    );
-  }
+  if (loading) return <main className="flex min-h-screen items-center justify-center bg-background px-6"><div className="w-full max-w-sm text-center"><div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20">PDF</div><div className="mb-5 h-1.5 overflow-hidden rounded-full bg-primary/10"><div className="h-full w-3/5 rounded-full bg-primary" /></div><h1 className="text-xl font-semibold tracking-tight">Opening your document</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">We&apos;re preparing your PDF workspace.</p></div></main>;
   if (!pdf) return null;
 
-  return (
-    <div className="h-screen bg-slate-50 text-slate-900" style={{ display: "flex", flexDirection: "column" }}>
-      {notice && (
-        <div role="status" className="fixed right-5 top-5 z-50 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-xl">
-          <span className="flex size-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">✓</span>
-          {notice}
-          <button onClick={() => setNotice(null)} className="ml-2 text-slate-400" aria-label="Dismiss notification">×</button>
-        </div>
-      )}
-      {/* Top bar */}
-      <header style={{ height: 52, background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", padding: "0 16px", gap: 12, flexShrink: 0 }}>
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-          style={{ color: "#64748b", fontSize: 13, fontWeight: 500 }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Documents
-        </button>
-        <div style={{ width: 1, height: 20, background: "#e2e8f0" }} />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <LogoMark />
-          <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {pdf.filename}
-          </span>
-        </div>
-        <button
-          onClick={handleShare}
-          className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm"
-          style={{ borderColor: "#e2e8f0", color: "#374151", fontWeight: 500, background: "#fff" }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="11" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1.2" />
-            <circle cx="11" cy="11.5" r="1.5" stroke="currentColor" strokeWidth="1.2" />
-            <circle cx="3" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.2" />
-            <path d="M4.5 6.1L9.5 3.4M4.5 7.9L9.5 10.6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-          </svg>
-          Share Link
-        </button>
-      </header>
-
-      {/* Split body */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Left: PDF viewer */}
-        <div style={{ flex: "0 0 65%", borderRight: "1px solid #e2e8f0", overflow: "hidden" }}>
-          {pdf.file_url ? (
-            <iframe src={pdf.file_url} style={{ width: "100%", height: "100%", border: "none" }} title={pdf.filename} />
-          ) : (
-            <div className="flex items-center justify-center h-full" style={{ color: "#94a3b8" }}>
-              PDF preview unavailable
-            </div>
-          )}
-        </div>
-
-        {/* Right: Chat / Comments */}
-        <div style={{ flex: "0 0 35%", display: "flex", flexDirection: "column", background: "#fff" }}>
-          {/* Summary block */}
-          <div style={{ padding: 16, borderBottom: "1px solid #e2e8f0" }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 6 }}>SUMMARY</p>
-            <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
-              {pdf.summary_status === "pending" ? "Generating summary..." : pdf.summary || "No summary available."}
-            </p>
-          </div>
-
-          {/* Tabs */}
-          <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0" }}>
-            <button
-              onClick={() => setSideTab("chat")}
-              style={{
-                flex: 1, padding: "12px 0", fontSize: 13, fontWeight: 600,
-                color: sideTab === "chat" ? "#4f46e5" : "#94a3b8",
-                borderBottom: sideTab === "chat" ? "2px solid #6366f1" : "2px solid transparent",
-              }}
-            >
-              AI Chat
-            </button>
-            <button
-              onClick={() => setSideTab("comments")}
-              style={{
-                flex: 1, padding: "12px 0", fontSize: 13, fontWeight: 600,
-                color: sideTab === "comments" ? "#4f46e5" : "#94a3b8",
-                borderBottom: sideTab === "comments" ? "2px solid #6366f1" : "2px solid transparent",
-              }}
-            >
-              Comments ({comments.length})
-            </button>
-          </div>
-
-          {sideTab === "comments" ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                {comments.length === 0 ? (
-                  <p style={{ fontSize: 13, color: "#94a3b8" }}>No comments yet.</p>
-                ) : (
-                  comments.map((c) => (
-                    <div key={c.id} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid #f1f5f9" }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-                        >
-                          {c.author_name.charAt(0).toUpperCase()}
-                        </div>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{c.author_name}</span>
-                        <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                          {new Date(c.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{c.content}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div style={{ padding: 12, borderTop: "1px solid #e2e8f0", display: "flex", gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Add a comment..."
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handlePostComment()}
-                  style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }}
-                />
-                <button
-                  onClick={handlePostComment}
-                  disabled={posting}
-                  style={{ padding: "8px 14px", borderRadius: 8, background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 600 }}
-                >
-                  Post
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                {chatMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "85%",
-                      background: msg.role === "user" ? "#6366f1" : "#f1f5f9",
-                      color: msg.role === "user" ? "#fff" : "#0f172a",
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {msg.content}
-                  </div>
-                ))}
-                {chatLoading && (
-                  <div style={{ alignSelf: "flex-start", color: "#94a3b8", fontSize: 12, padding: "0 4px" }}>
-                    Thinking...
-                  </div>
-                )}
-              </div>
-              <div style={{ padding: 12, borderTop: "1px solid #e2e8f0", display: "flex", gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Ask a question..."
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
-                  disabled={chatLoading}
-                  style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 13, outline: "none" }}
-                />
-                <button
-                  onClick={handleSendChat}
-                  disabled={chatLoading}
-                  style={{ padding: "8px 14px", borderRadius: 8, background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 600 }}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+  return <main className="flex h-dvh flex-col overflow-hidden bg-muted/40 text-foreground">
+    {notice && <div role="status" className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium shadow-xl"><span className="flex size-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">✓</span>{notice}<button onClick={() => setNotice(null)} className="text-muted-foreground" aria-label="Dismiss notification">×</button></div>}
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background px-4 sm:px-6">
+      <button onClick={() => router.push("/dashboard")} className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"><ChevronLeft /> <span className="hidden sm:inline">Documents</span></button>
+      <div className="h-6 w-px bg-border" /><div className="flex min-w-0 flex-1 items-center gap-3"><LogoMark /><span className="truncate text-sm font-semibold text-foreground sm:text-base">{pdf.filename}</span></div>
+      <button onClick={handleShare} className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted"><ShareIcon /><span className="hidden sm:inline">Share</span></button>
+    </header>
+    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <section className="min-h-0 flex-1 bg-muted/60 p-2 sm:p-3 lg:p-5"><div className="size-full overflow-hidden rounded-xl border border-border bg-background shadow-sm">{pdf.file_url ? <iframe src={pdf.file_url} className="size-full border-0" title={pdf.filename} /> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">PDF preview unavailable</div>}</div></section>
+      <aside className="flex min-h-[360px] w-full flex-col border-t border-border bg-background lg:min-h-0 lg:w-[390px] lg:border-l lg:border-t-0 xl:w-[440px]">
+        <div className="border-b border-border px-5 py-5"><div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Document summary</p><span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">AI insight</span></div><p className="line-clamp-6 text-[15px] leading-7 text-muted-foreground">{pdf.summary_status === "pending" ? "Generating summary..." : pdf.summary || "No summary available."}</p></div>
+        <div className="flex border-b border-border px-2"><button onClick={() => setSideTab("chat")} className={`flex-1 border-b-2 px-3 py-4 text-sm font-semibold ${sideTab === "chat" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>AI Chat</button><button onClick={() => setSideTab("comments")} className={`flex-1 border-b-2 px-3 py-4 text-sm font-semibold ${sideTab === "comments" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Comments <span className="ml-1 text-xs">({comments.length})</span></button></div>
+        {sideTab === "chat" ? <div className="flex min-h-0 flex-1 flex-col"><div className="flex-1 overflow-y-auto px-5 py-5"><div className="flex flex-col gap-4">{chatMessages.map((msg, i) => <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-6 ${msg.role === "user" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}>{msg.content}</div></div>)}{chatLoading && <p className="text-xs text-muted-foreground">Thinking...</p>}</div></div><div className="border-t border-border p-4"><div className="flex items-center gap-2 rounded-xl border border-border bg-background p-1.5 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10"><input aria-label="Ask a question" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.nativeEvent.isComposing || e.keyCode === 229) return; if (e.key === "Enter") void handleSendChat(); }} disabled={chatLoading} placeholder="Ask a question..." className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground" /><button onClick={handleSendChat} disabled={chatLoading || !chatInput.trim()} aria-label="Send question" className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"><SendIcon /></button></div></div></div> : <div className="flex min-h-0 flex-1 flex-col"><div className="flex-1 overflow-y-auto px-5 py-5">{comments.length === 0 ? <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground"><p>No comments yet.<br /><span className="text-xs">Start a conversation about this document.</span></p></div> : <div className="flex flex-col gap-5">{comments.map((c) => <article key={c.id} className="border-b border-border pb-5"><div className="mb-2 flex items-center gap-2"><div className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{c.author_name.charAt(0).toUpperCase()}</div><div><p className="text-sm font-semibold">{c.author_name}</p><p className="text-[11px] text-muted-foreground">{new Date(c.created_at).toLocaleString()}</p></div></div><p className="pl-10 text-sm leading-6 text-muted-foreground">{c.content}</p></article>)}</div>}</div><div className="border-t border-border p-4"><div className="flex gap-2"><input aria-label="Add a comment" value={commentInput} onChange={(e) => setCommentInput(e.target.value)} onKeyDown={(e) => { if (e.nativeEvent.isComposing || e.keyCode === 229) return; if (e.key === "Enter") void handlePostComment(); }} placeholder="Add a comment..." className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" /><button onClick={handlePostComment} disabled={posting || !commentInput.trim()} className="rounded-lg bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">Post</button></div></div></div>}
+      </aside>
     </div>
-  );
+  </main>;
 }
