@@ -1,12 +1,16 @@
-export function LogoMark() {
+export function LogoMark({ showName = true }: { showName?: boolean }) {
   return (
-    <div className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-indigo-600 shadow-sm shadow-indigo-600/25" aria-hidden="true">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="2" width="5" height="5" rx="1" fill="white" />
-        <rect x="9" y="2" width="5" height="5" rx="1" fill="white" opacity="0.62" />
-        <rect x="2" y="9" width="5" height="5" rx="1" fill="white" opacity="0.62" />
-        <rect x="9" y="9" width="5" height="5" rx="1" fill="white" />
-      </svg>
+    <div className="flex items-center gap-3">
+      <div className="relative flex size-11 shrink-0 items-center justify-center" aria-hidden="true">
+        <span className="absolute left-1 top-1 h-7 w-7 -skew-x-[22deg] rounded-[7px] bg-blue-400 shadow-sm" />
+        <span className="absolute bottom-1 right-1 h-7 w-7 -skew-x-[22deg] rounded-[7px] bg-blue-700 shadow-sm" />
+      </div>
+      {showName && (
+        <div className="leading-none">
+          <p className="text-[25px] font-bold tracking-[-0.06em] text-slate-950">Clause<span className="text-blue-600">AI</span></p>
+          <p className="mt-2 text-[11px] font-medium tracking-[0.01em] text-slate-500">PDF Intelligence &amp; Collaboration</p>
+        </div>
+      )}
     </div>
   );
 }

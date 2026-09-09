@@ -1,5 +1,3 @@
-"use client";
-
 export function IndigoButton({
   children,
   type = "button",
@@ -18,7 +16,7 @@ export function IndigoButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-600/20 hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-md hover:shadow-indigo-600/25 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/25 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
       {children}
     </button>
