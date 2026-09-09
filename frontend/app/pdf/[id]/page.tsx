@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getPDF, listComments, addComment, sharePDF, sendChatMessage } from "@/lib/api";
 import { LogoMark } from "@/components/ui/LogoMark";
+import { ChatMarkdown } from "@/components/ui/ChatMarkdown";
 
 interface PDFDetail {
   id: number;
@@ -291,7 +292,7 @@ export default function PDFViewerPage() {
                       lineHeight: 1.5,
                     }}
                   >
-                    {msg.content}
+                    {msg.role === "assistant" ? <ChatMarkdown content={msg.content} /> : msg.content}
                   </div>
                 ))}
                 {chatLoading && (
