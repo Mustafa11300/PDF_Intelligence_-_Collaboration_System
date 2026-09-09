@@ -166,5 +166,4 @@ This avoids the complexity of a vector database or embeddings pipeline while sti
 
 - **Deployed app:** https://pdf-intelligence-collaboration-syst-zeta.vercel.app
 - **Backend API:** https://pdf-intelligence-collaboration-system.onrender.com
-- **GitHub repository:** _(add your repo link here)_
-- **Video walkthrough:** _(add your Loom link here)_
+- **Video walkthrough:** https://www.loom.com/share/1fb97ab8626a4d2ba9c613bab2c7f94d
