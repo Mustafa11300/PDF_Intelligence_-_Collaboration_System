@@ -1,241 +1,34 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { listPDFs, uploadPDF } from "@/lib/api";
 import { IndigoButton } from "@/components/ui/IndigoButton";
 import { LogoMark } from "@/components/ui/LogoMark";
 
-interface PDFItem {
-  id: number;
-  filename: string;
-  upload_date: string;
-  summary: string | null;
-  summary_status: string;
-  share_token: string | null;
-}
+interface PDFItem { id: number; filename: string; upload_date: string; summary: string | null; summary_status: string; share_token: string | null; }
 
 export default function Dashboard() {
-  const router = useRouter();
-  const [pdfs, setPdfs] = useState<PDFItem[]>([]);
-  const [search, setSearch] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const fetchPdfs = async (q?: string) => {
-    try {
-      const data = await listPDFs(q);
-      setPdfs(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const router = useRouter(); const [pdfs, setPdfs] = useState<PDFItem[]>([]); const [search, setSearch] = useState(""); const [uploading, setUploading] = useState(false); const [loading, setLoading] = useState(true); const fileInputRef = useRef<HTMLInputElement>(null);
+  const fetchPdfs = async (q?: string) => { try { setPdfs(await listPDFs(q)); } catch (err) { console.error(err); } finally { setLoading(false); } };
   useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      router.push("/login");
-      return;
-    }
-    fetchPdfs();
-  }, []);
-
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    fetchPdfs(value);
-  };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      await uploadPDF(file);
-      await fetchPdfs(search);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleSignOut = () => {
-    localStorage.removeItem("token");
-    router.push("/login");
-  };
-
+    if (!localStorage.getItem("token")) { router.push("/login"); return; }
+    const timer = window.setTimeout(() => { void fetchPdfs(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [router]);
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; setUploading(true); try { await uploadPDF(file); await fetchPdfs(search); } catch (err: any) { alert(err.message); } finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ""; } };
+  const handleSignOut = () => { localStorage.removeItem("token"); router.push("/login"); };
   return (
-    <div style={{ background: "#f8fafc", minHeight: "100vh" }}>
-      {/* Top Nav */}
-      <header
-        className="sticky top-0 z-10"
-        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid #e2e8f0" }}
-      >
-        <div className="mx-auto flex items-center justify-between" style={{ maxWidth: 1280, padding: "0 32px", height: 64 }}>
-          <div className="flex items-center gap-2.5">
-            <LogoMark />
-            <span style={{ fontWeight: 600, color: "#0f172a", fontSize: 17, letterSpacing: "-0.02em" }}>
-              PDF Intelligence
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handleUpload} />
-            <IndigoButton onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              {uploading ? "Uploading..." : "Upload PDF"}
-            </IndigoButton>
-
-            <button
-              className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl border transition-colors"
-              style={{ borderColor: "#e2e8f0", background: "#fff" }}
-              onClick={handleSignOut}
-            >
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-              >
-                U
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>Sign out</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Page content */}
-      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "40px 32px 64px" }}>
-        <div className="mb-8">
-          <h1 style={{ fontWeight: 700, color: "#0f172a", fontSize: 28, letterSpacing: "-0.03em", marginBottom: 4 }}>
-            My Documents
-          </h1>
-          <p style={{ color: "#64748b", fontSize: 14 }}>{pdfs.length} document{pdfs.length !== 1 ? "s" : ""}</p>
-        </div>
-
-        {/* Search bar */}
-        <div
-          className="relative mb-8 transition-all duration-150"
-          style={{
-            border: `1.5px solid ${searchFocused ? "#6366f1" : "#e2e8f0"}`,
-            borderRadius: 14,
-            background: "#fff",
-            boxShadow: searchFocused ? "0 0 0 3px rgba(99,102,241,0.12), 0 4px 16px rgba(0,0,0,0.04)" : "0 1px 4px rgba(0,0,0,0.04)",
-          }}
-        >
-          <div className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <circle cx="8" cy="8" r="5.5" stroke={searchFocused ? "#6366f1" : "#94a3b8"} strokeWidth="1.5" />
-              <path d="M12.5 12.5L16 16" stroke={searchFocused ? "#6366f1" : "#94a3b8"} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </div>
-          <input
-            type="text"
-            placeholder="Search documents by filename…"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            style={{ width: "100%", padding: "14px 20px 14px 48px", fontSize: 15, color: "#0f172a", background: "transparent", outline: "none" }}
-          />
-        </div>
-
-        {/* Document grid */}
-        {loading ? (
-          <p style={{ color: "#94a3b8", fontSize: 14 }}>Loading...</p>
-        ) : pdfs.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-            {pdfs.map((pdf) => (
-              <DocumentCard key={pdf.id} pdf={pdf} onClick={() => router.push(`/pdf/${pdf.id}`)} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-24" style={{ color: "#94a3b8" }}>
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="mb-4">
-              <rect x="10" y="6" width="28" height="36" rx="3" stroke="#e2e8f0" strokeWidth="2" />
-              <path d="M18 16h12M18 22h12M18 28h8" stroke="#e2e8f0" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            <p style={{ fontSize: 15, fontWeight: 500, color: "#64748b" }}>No documents found</p>
-            <p style={{ fontSize: 13, marginTop: 4 }}>Upload a PDF to get started</p>
-          </div>
-        )}
-      </main>
-    </div>
+    <main className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur-xl"><div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8"><div className="flex items-center gap-3"><LogoMark /><span className="text-[15px] font-semibold tracking-tight text-slate-900">PDF Intelligence</span></div><div className="flex items-center gap-3"><input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handleUpload} /><IndigoButton onClick={() => fileInputRef.current?.click()} disabled={uploading}><span className="text-lg leading-none">+</span>{uploading ? "Uploading..." : "Upload PDF"}</IndigoButton><button onClick={handleSignOut} className="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 sm:block">Sign out</button></div></div></header>
+      <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14"><div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Workspace</p><h1 className="text-3xl font-semibold tracking-tight text-slate-950">My documents</h1><p className="mt-2 text-sm text-slate-500">{pdfs.length} document{pdfs.length !== 1 ? "s" : ""} in your library</p></div><button onClick={handleSignOut} className="text-left text-sm font-medium text-slate-500 hover:text-slate-900 sm:hidden">Sign out</button></div>
+        <div className="mb-8 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm shadow-slate-900/[0.03]"><svg className="size-5 shrink-0 text-slate-400" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.5"/><path d="m13 13 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg><input className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400" placeholder="Search documents by filename" value={search} onChange={(e) => { setSearch(e.target.value); fetchPdfs(e.target.value); }} /></div>
+        {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500">Loading your documents...</div> : pdfs.length > 0 ? <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{pdfs.map((pdf) => <DocumentCard key={pdf.id} pdf={pdf} onClick={() => router.push(`/pdf/${pdf.id}`)} />)}</div> : <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center"><div className="mb-5 flex size-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><svg className="size-7" viewBox="0 0 24 24" fill="none"><path d="M6 3h8l4 4v14H6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M14 3v5h5M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div><h2 className="text-base font-semibold text-slate-900">Your library is ready</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">Upload a PDF to generate an AI summary, ask questions, and collaborate with your team.</p><IndigoButton onClick={() => fileInputRef.current?.click()} className="mt-6">Upload your first PDF</IndigoButton></div>}
+      </div>
+    </main>
   );
 }
 
-function DocumentCard({ pdf, onClick }: { pdf: PDFItem; onClick: () => void }) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onClick}
-      style={{
-        background: "#fff",
-        border: `1.5px solid ${hovered ? "#c7d2fe" : "#e2e8f0"}`,
-        borderRadius: 16,
-        padding: "24px",
-        cursor: "pointer",
-        transition: "all 0.18s ease",
-        boxShadow: hovered ? "0 4px 24px rgba(99,102,241,0.10), 0 1px 4px rgba(0,0,0,0.04)" : "0 1px 3px rgba(0,0,0,0.04)",
-        transform: hovered ? "translateY(-2px)" : "translateY(0)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-      }}
-    >
-      <div
-        className="flex-shrink-0 flex items-center justify-center rounded-xl"
-        style={{ width: 44, height: 44, background: "#fef2f2", border: "1px solid #fecaca" }}
-      >
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-          <rect x="3" y="1" width="14" height="18" rx="2" fill="#fee2e2" stroke="#fca5a5" strokeWidth="1.2" />
-          <path d="M13 1v5h4" stroke="#fca5a5" strokeWidth="1.2" strokeLinecap="round" />
-          <path d="M6 9h8M6 12h8M6 15h5" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-      </div>
-
-      <h3 style={{ fontWeight: 700, color: "#0f172a", fontSize: 15, letterSpacing: "-0.02em", lineHeight: 1.35 }}>
-        {pdf.filename}
-      </h3>
-
-      <p
-        style={{
-          color: "#64748b",
-          fontSize: 13,
-          lineHeight: 1.65,
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-          minHeight: "3.9em",
-        }}
-      >
-        {pdf.summary_status === "pending" ? "Generating summary..." : pdf.summary || "No summary available."}
-      </p>
-
-      <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid #f1f5f9" }}>
-        <div className="flex items-center gap-1.5">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <rect x="1" y="2" width="11" height="10" rx="2" stroke="#94a3b8" strokeWidth="1.2" />
-            <path d="M4 1v2M9 1v2" stroke="#94a3b8" strokeWidth="1.2" strokeLinecap="round" />
-            <path d="M1 5.5h11" stroke="#94a3b8" strokeWidth="1.2" />
-          </svg>
-          <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>
-            {new Date(pdf.upload_date).toLocaleDateString()}
-          </span>
-        </div>
-        {pdf.share_token && (
-          <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 600 }}>Shared</span>
-        )}
-      </div>
-    </div>
-  );
-}
+function DocumentCard({ pdf, onClick }: { pdf: PDFItem; onClick: () => void }) { return <button onClick={onClick} className="group flex min-h-64 flex-col rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm shadow-slate-900/[0.03] hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-900/[0.08]"><div className="mb-5 flex items-start justify-between"><div className="flex size-11 items-center justify-center rounded-xl bg-red-50 text-red-500"><svg className="size-6" viewBox="0 0 24 24" fill="none"><path d="M6 3h8l4 4v14H6V3Z" stroke="currentColor" strokeWidth="1.5"/><path d="M14 3v5h5M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></div>{pdf.share_token && <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600">Shared</span>}</div><h3 className="line-clamp-2 text-[15px] font-semibold leading-6 text-slate-900">{pdf.filename}</h3><p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-500">{pdf.summary_status === "pending" ? "Generating summary..." : pdf.summary || "No summary available."}</p><div className="mt-auto flex items-center gap-2 border-t border-slate-100 pt-4 text-xs font-medium text-slate-400"><svg className="size-4" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor"/><path d="M5 2v3M11 2v3M2 7h12" stroke="currentColor" strokeLinecap="round"/></svg>{new Date(pdf.upload_date).toLocaleDateString()}</div></button>; }

@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getPDF, listComments, addComment, sharePDF, sendChatMessage } from "@/lib/api";
@@ -130,7 +132,7 @@ export default function PDFViewerPage() {
   if (!pdf) return null;
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#f8fafc" }}>
+    <div className="h-screen bg-slate-50 text-slate-900" style={{ display: "flex", flexDirection: "column" }}>
       {/* Top bar */}
       <header style={{ height: 52, background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", padding: "0 16px", gap: 12, flexShrink: 0 }}>
         <button

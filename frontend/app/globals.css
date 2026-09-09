@@ -2,7 +2,20 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --background-secondary: #f8fafc;
+  --foreground: #0f172a;
+  --foreground-muted: #64748b;
+  --border-color: #e2e8f0;
+  --border-color-light: #f1f5f9;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-dark: #4338ca;
+  --surface-hover: #fafaff;
+  --surface-active: #eef2ff;
+  --error: #ef4444;
+  --error-light: #fee2e2;
+  --success: #10b981;
+  --success-light: #d1fae5;
 }
 
 @theme inline {
@@ -14,13 +27,48 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a;
+    --background-secondary: #1e293b;
+    --foreground: #f1f5f9;
+    --foreground-muted: #94a3b8;
+    --border-color: #334155;
+    --border-color-light: #1e293b;
+    --primary: #818cf8;
+    --primary-hover: #a5b4fc;
+    --primary-dark: #6366f1;
+    --surface-hover: #1e293b;
+    --surface-active: #312e81;
+    --error: #fca5a5;
+    --error-light: #7f1d1d;
+    --success: #6ee7b7;
+    --success-light: #064e3b;
   }
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  background: var(--background);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+input, textarea, select {
+  font-family: var(--font-sans);
+}
+
+/* Smooth transitions */
+* {
+  @apply transition-colors duration-150;
+}
+
+button, a, input, textarea, select {
+  @apply transition-all duration-150;
 }

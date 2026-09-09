@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 interface FieldProps {
   label: string;
   name: string;
@@ -12,12 +10,9 @@ interface FieldProps {
 }
 
 export function AuthField({ label, name, type, placeholder, value, onChange }: FieldProps) {
-  const [focused, setFocused] = useState(false);
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={name} style={{ fontWeight: 600, color: "#374151", fontSize: 12, letterSpacing: "0.01em" }}>
-        {label}
-      </label>
+    <label className="flex flex-col gap-2 text-sm font-medium text-slate-700" htmlFor={name}>
+      {label}
       <input
         id={name}
         name={name}
@@ -25,16 +20,8 @@ export function AuthField({ label, name, type, placeholder, value, onChange }: F
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all duration-150"
-        style={{
-          border: `1.5px solid ${focused ? "#6366f1" : "#e2e8f0"}`,
-          color: "#0f172a",
-          background: focused ? "#fafaff" : "#fff",
-          boxShadow: focused ? "0 0 0 3px rgba(99,102,241,0.12)" : "0 1px 2px rgba(0,0,0,0.03)",
-        }}
+        className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:bg-indigo-50/20 focus:ring-4 focus:ring-indigo-500/10"
       />
-    </div>
+    </label>
   );
 }
